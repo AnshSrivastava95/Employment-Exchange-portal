@@ -1,0 +1,20 @@
+{
+  "name": "employment-backend",
+  "version": "1.0.0",
+  "description": "SmartMatch AI Recommendation Engine Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "mongoose": "^9.7.3",
+    "natural": "^8.1.1",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0"
+  }
+}
