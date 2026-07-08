@@ -17,12 +17,12 @@ export default function App() {
   const [activeJobCandidates, setActiveJobCandidates] = useState([]);
   const [inspectingJobId, setInspectingJobId] = useState(null);
 
-  // Registration Form Layout Hooks
+
   const [regForm, setRegForm] = useState({ name: '', email: '', role: 'candidate', skills: '', experience: 0 });
   const [regCompanies, setRegCompanies] = useState([]);
   const [regProjects, setRegProjects] = useState([]);
 
-  // Logged-in Dashboard Active Editing State Hooks
+
   const [editSkills, setEditSkills] = useState('');
   const [editExperience, setEditExperience] = useState(0);
   const [editCompanies, setEditCompanies] = useState([]);
@@ -30,7 +30,7 @@ export default function App() {
 
   const [jobForm, setJobForm] = useState({ title: '', company: '', description: '', requiredSkills: '', experienceRequired: 0, location: 'Remote' });
 
-  // Handle Dynamic Push Operations for Companies and Projects subforms
+
   const addCompanyRow = (isEdit = false) => {
     const newCompany = { companyName: '', roleTitle: '', duration: '', description: '' };
     isEdit ? setEditCompanies([...editCompanies, newCompany]) : setRegCompanies([...regCompanies, newCompany]);
@@ -83,7 +83,7 @@ export default function App() {
 
   const handleUpdateProfile = async () => {
     try {
-      // Robust type sanitation check to ensure types never break database boundaries
+
       const formattedProjects = editProjects.map(p => {
         let stackArray = [];
         if (Array.isArray(p.techStack)) {
@@ -106,7 +106,7 @@ export default function App() {
         alert("Profile re-vectored & vector tracking refreshed!");
         setCurrentUser(res.data.user);
         
-        // Sync fresh structural data safely straight back to working fields
+
         setEditSkills(res.data.user.skills?.join(', ') || '');
         setEditExperience(res.data.user.experience || 0);
         setEditCompanies(res.data.user.companies || []);
@@ -198,7 +198,7 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto">
         
-        {/* COMPREHENSIVE BEAUTIFUL LANDING DASHBOARD */}
+        
         {currentView === 'login' && (
           <div className="space-y-16">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center pt-4">
@@ -251,7 +251,7 @@ export default function App() {
           </div>
         )}
 
-        {/* PROFILE CREATION & NESTED ARRAY SUBFORMS */}
+        
         {currentView === 'register' && (
           <div className="max-w-3xl mx-auto bg-slate-900 border border-slate-800 p-8 rounded-3xl space-y-6">
             <h2 className="text-2xl font-black text-center flex items-center justify-center gap-2 text-violet-400"><UserPlus /> Build Structural Profile Matrix</h2>
@@ -277,7 +277,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* INTERACTIVE WORK EXPERIENCE SUBFORM POOL */}
+                  
                   {regForm.experience > 0 && (
                     <div className="space-y-4 bg-slate-950/60 p-5 rounded-2xl border border-slate-800">
                       <div className="flex justify-between items-center">
@@ -303,7 +303,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* INTERACTIVE PROJECT BUILDER SUBFORM POOL */}
+                
                   <div className="space-y-4 bg-slate-950/60 p-5 rounded-2xl border border-slate-800">
                     <div className="flex justify-between items-center">
                       <h4 className="font-bold text-cyan-400 text-xs flex items-center gap-1.5"><FolderGit size={14}/> Engineering Projects Vector Pool</h4>
@@ -332,11 +332,10 @@ export default function App() {
           </div>
         )}
 
-        {/* SYSTEM CENTRAL DASHBOARD (CANDIDATE SUITE VIEW) */}
         {currentView === 'candidate' && currentUser && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
-            {/* PROFILE MANAGEMENT & CORE PARAMETERS */}
+
             <div className="lg:col-span-4 space-y-6">
               
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
@@ -350,7 +349,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* LIVE RE-VECTOR MATRIX MODULE (EDIT PROFILE SIDEBAR) */}
+              
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
                 <h3 className="font-bold border-b border-slate-800 pb-3 flex items-center gap-2 text-amber-400"><Settings size={16}/> Telemetry Target Workspace</h3>
                 <div className="space-y-3 text-xs">
@@ -363,7 +362,7 @@ export default function App() {
                     <input type="number" value={editExperience} onChange={e => setEditExperience(parseInt(e.target.value) || 0)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none" />
                   </div>
 
-                  {/* Inline Workspace History Modification Array Fields */}
+                  
                   {editExperience > 0 && (
                     <div className="space-y-3 pt-2">
                       <div className="flex justify-between items-center">
@@ -380,7 +379,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Inline Workspace Project Modification Array Fields */}
+                  
                   <div className="space-y-3 pt-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400 block">Engineering Projects Rows</span>
@@ -399,7 +398,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ECOSYSTEM GUARD INTEGRATION PANEL (2FA) */}
+              
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
                 <h3 className="font-bold flex items-center gap-2 text-violet-400 border-b border-slate-800 pb-3"><ShieldCheck size={18}/> Ecosystem Guard (2FA)</h3>
                 {!currentUser.isTwoFactorEnabled ? (
@@ -417,14 +416,14 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="text-center p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
-                    🔒 Multi-Factor Vault Routing Shield Fully Operational
+                     Multi-Factor Vault Routing Shield Fully Operational
                   </div>
                 )}
               </div>
 
             </div>
 
-            {/* REAL-TIME MATCHING AI RESULTS FEED */}
+          
             <div className="lg:col-span-8 space-y-4">
               <h2 className="text-xl font-black text-emerald-400 flex items-center gap-2"><Briefcase /> Vector Matching Pipeline Score Metrics</h2>
               {recommendations.map((job) => (
@@ -447,7 +446,7 @@ export default function App() {
           </div>
         )}
 
-        {/* POSTER VIEW POSITION CONTROLS */}
+        
         {currentView === 'poster' && currentUser && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="space-y-6">
