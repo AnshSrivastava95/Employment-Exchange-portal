@@ -14,7 +14,7 @@ app.use(express.json());
 const MONGO_URI = 'mongodb://127.0.0.1:27017/smartmatch_ai'; 
 mongoose.connect(MONGO_URI)
   .then(() => console.log("💾 MongoDB Connected Successfully with ML Modules!"))
-  .catch(err => console.error("❌ MongoDB connection error:", err));
+  .catch(err => console.error("MongoDB connection error:", err));
 
 
 const UserSchema = new mongoose.Schema({
@@ -214,4 +214,4 @@ app.get('/api/feeds/public-jobs', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.listen(5000, () => console.log("🚀 Live ML-Powered Unified SmartMatch Engine running on Port 5000"));
+app.listen(5000, () => console.log("Live ML-Powered Unified SmartMatch Engine running on Port 5000"));
