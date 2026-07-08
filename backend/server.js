@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -7,22 +6,38 @@ const qrcode = require('qrcode');
 const natural = require('natural');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
+// Explicit CORS implementation to avoid preflight browser block errors
+app.use(cors({
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json());
 
 const MONGO_URI = 'mongodb://127.0.0.1:27017/smartmatch_ai'; 
 mongoose.connect(MONGO_URI)
-  .then(() => console.log("💾 MongoDB Connected Successfully with ML Modules!"))
+  .then(() => console.log("💾 Advanced ML Engine & DB Connected Successfully!"))
   .catch(err => console.error("MongoDB connection error:", err));
 
-
+// Database Schemas Supporting Projects, Multi-Company Work History, and 2FA
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, unique: true, required: true },
   role: { type: String, enum: ['candidate', 'poster'], required: true },
   skills: [String],
   experience: { type: Number, default: 0 },
+  companies: [{
+    companyName: String,
+    roleTitle: String,
+    duration: String,
+    description: String
+  }],
+  projects: [{
+    title: String,
+    techStack: [String],
+    description: String
+  }],
   twoFactorSecret: { type: String, default: "" },
   isTwoFactorEnabled: { type: Boolean, default: false }
 });
@@ -42,50 +57,66 @@ const JobSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 const Job = mongoose.model('Job', JobSchema);
 
-function calculateMLMatchScore(candidate, job) {
-  if (!job.requiredSkills || !job.requiredSkills.length) return 1.0; 
-  if (!candidate.skills || !candidate.skills.length) return 0;
-
+// Deep Vectorization ML Match Engine (TF-IDF Processing)
+function calculateDeepMLMatchScore(candidate, job) {
+  if (!job.requiredSkills || !job.requiredSkills.length) return 1.0;
   
-  const candidateText = `
-    ${(candidate.skills || []).join(' ')} 
-    ${candidate.experience} years engineering
-  `.toLowerCase();
+  // 1. Build a rich textual profile representation of the candidate
+  let candidateCorpus = `${(candidate.skills || []).join(' ')} `;
+  candidateCorpus += `${candidate.experience} years engineering experience. `;
+  
+  if (candidate.companies && candidate.companies.length) {
+    candidate.companies.forEach(c => {
+      candidateCorpus += `${c.companyName} ${c.roleTitle} ${c.description} `;
+    });
+  }
+  
+  if (candidate.projects && candidate.projects.length) {
+    candidate.projects.forEach(p => {
+      candidateCorpus += `${p.title} ${(p.techStack || []).join(' ')} ${p.description} `;
+    });
+  }
 
-  const jobText = `
+  // 2. Build a clear textual definition of the target job
+  const jobCorpus = `
     ${(job.requiredSkills || []).join(' ')} 
     ${job.title || ''} 
     ${job.description || ''}
   `.toLowerCase();
 
-  
   const tfidf = new natural.TfIdf();
-  tfidf.addDocument(jobText);
+  tfidf.addDocument(jobCorpus);
 
-  let rawMatchScore = 0;
-  tfidf.tfidfs(candidateText, function(i, measure) {
-    rawMatchScore += measure;
+  let rawScore = 0;
+  tfidf.tfidfs(candidateCorpus.toLowerCase(), function(i, measure) {
+    rawScore += measure;
   });
 
-  
-  let finalScore = Math.min(Math.max(rawMatchScore / 3, 0), 1);
+  let finalScore = Math.min(Math.max(rawScore / 4, 0), 1);
 
-  
+  // Exact Penalty for Experience Deficit
   if (candidate.experience < job.experienceRequired) {
-    finalScore *= 0.7;
+    finalScore *= 0.65;
   }
 
   return finalScore;
 }
 
+// REST Endpoints
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { name, email, role, skills, experience } = req.body;
+    const { name, email, role, skills, experience, companies, projects } = req.body;
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "Email already registered." });
     
     const skillArray = skills ? skills.split(',').map(s => s.trim()) : [];
-    const newUser = new User({ name, email, role, skills: skillArray, experience: experience || 0 });
+    const newUser = new User({ 
+      name, email, role, 
+      skills: skillArray, 
+      experience: experience || 0,
+      companies: companies || [],
+      projects: projects || []
+    });
     await newUser.save();
     res.status(201).json({ success: true, user: newUser });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -104,16 +135,33 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/auth/update-profile', async (req, res) => {
+  try {
+    const { userId, skills, experience, companies, projects } = req.body;
+    
+    // Explicit Backend Type Guards to ensure Array formats pass correctly into Mongo
+    const skillArray = Array.isArray(skills) ? skills : (skills ? skills.split(',').map(s => s.trim()) : []);
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { skills: skillArray, experience, companies, projects },
+      { new: true }
+    );
+    res.json({ success: true, user: updatedUser });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Two-Factor Setup & Verification Handlers
 app.post('/api/auth/2fa/setup', async (req, res) => {
   try {
     const { userId } = req.body;
     const user = await User.findById(userId);
-    const secret = speakeasy.generateSecret({ name: `SmartMatch AI (${user.email})` });
+    const secret = speakeasy.generateSecret({ name: `SmartMatch Pro (${user.email})` });
     user.twoFactorSecret = secret.base32;
     await user.save();
     
     qrcode.toDataURL(secret.otpauth_url, (err, dataUrl) => {
-      if (err) return res.status(500).json({ error: "QR Generation Stream Broken" });
+      if (err) return res.status(500).json({ error: "QR Token Generation Failure" });
       res.json({ qrCodeUrl: dataUrl });
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -128,7 +176,7 @@ app.post('/api/auth/2fa/verify', async (req, res) => {
       user.isTwoFactorEnabled = true;
       await user.save();
       res.json({ success: true, user });
-    } else { res.status(400).json({ success: false, message: "Invalid 2FA token authentication match." }); }
+    } else { res.status(400).json({ success: false, message: "Invalid 2FA verification token." }); }
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -138,7 +186,7 @@ app.get('/api/recommendations/candidate/:userId', async (req, res) => {
     const allJobs = await Job.find();
     
     const matchedJobs = allJobs.map(job => {
-      const matchScore = calculateMLMatchScore(candidate, job);
+      const matchScore = calculateDeepMLMatchScore(candidate, job);
       return { ...job.toObject(), match_score: Math.round(matchScore * 100) };
     });
 
@@ -153,7 +201,7 @@ app.get('/api/recommendations/job/:jobId/candidates', async (req, res) => {
     const allCandidates = await User.find({ role: 'candidate' });
 
     const matchedCandidates = allCandidates.map(candidate => {
-      const matchScore = calculateMLMatchScore(candidate, job);
+      const matchScore = calculateDeepMLMatchScore(candidate, job);
       return { ...candidate.toObject(), match_score: Math.round(matchScore * 100) };
     });
 
@@ -183,35 +231,4 @@ app.get('/api/jobs/posted/:posterId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/jobs/fetch-external', async (req, res) => {
-  try {
-    const { searchKeyword, targetPlatform } = req.body;
-    
-    const multiPlatformMock = [
-      { title: `${searchKeyword} System Engineer`, company: "Stripe Enterprise", description: "Production scaling pipeline infrastructure execution parsing structures.", skills: [searchKeyword, "NodeJS", "AWS"], exp: 3, location: "Remote", source: "LinkedIn", url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(searchKeyword)}` },
-      { title: `Senior ${searchKeyword} Developer`, company: "Meta Platforms", description: "Advanced full stack engineering design deployment optimization core routines.", skills: [searchKeyword, "React", "TypeScript"], exp: 5, location: "New York", source: "Indeed", url: `https://www.indeed.com/jobs?q=${encodeURIComponent(searchKeyword)}` },
-      { title: `Full-Stack ${searchKeyword} Associate`, company: "HedgeTech Labs", description: "Ecosystem design utilizing optimized query processing mechanics.", skills: [searchKeyword, "Python", "Docker"], exp: 1, location: "Remote", source: "ZipRecruiter", url: "https://www.ziprecruiter.com" }
-    ];
-
-    const selectedJobs = targetPlatform === "All Platforms" ? multiPlatformMock : multiPlatformMock.filter(j => j.source === targetPlatform);
-
-    const mappedJobs = selectedJobs.map(job => ({
-      title: job.title, company: job.company, description: job.description, requiredSkills: job.skills, experienceRequired: job.exp, location: job.location, sourceWebsite: job.source, applyUrl: job.url
-    }));
-
-    await Job.deleteMany({ sourceWebsite: { $in: ["LinkedIn", "Indeed", "ZipRecruiter"] }, requiredSkills: searchKeyword });
-    const savedJobs = await Job.insertMany(mappedJobs);
-
-    res.json({ success: true, message: ` ML Sync complete! Ingested ${savedJobs.length} live entries from ${targetPlatform}.` });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-
-app.get('/api/feeds/public-jobs', async (req, res) => {
-  try {
-    const internalJobs = await Job.find({ sourceWebsite: "SmartMatch Platform" });
-    res.json({ platform: "SmartMatch Automated Syndication Hub", totalActivePostings: internalJobs.length, listings: internalJobs });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.listen(5000, () => console.log("Live ML-Powered Unified SmartMatch Engine running on Port 5000"));
+app.listen(5000, () => console.log("Live Deep-Matching AI Pipeline listening on Port 5000"));
