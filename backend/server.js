@@ -7,7 +7,7 @@ const natural = require('natural');
 
 const app = express();
 
-// Explicit CORS implementation to avoid preflight browser block errors
+
 app.use(cors({
   origin: 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -20,7 +20,7 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log("💾 Advanced ML Engine & DB Connected Successfully!"))
   .catch(err => console.error("MongoDB connection error:", err));
 
-// Database Schemas Supporting Projects, Multi-Company Work History, and 2FA
+
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, unique: true, required: true },
@@ -57,11 +57,11 @@ const JobSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 const Job = mongoose.model('Job', JobSchema);
 
-// Deep Vectorization ML Match Engine (TF-IDF Processing)
+
 function calculateDeepMLMatchScore(candidate, job) {
   if (!job.requiredSkills || !job.requiredSkills.length) return 1.0;
   
-  // 1. Build a rich textual profile representation of the candidate
+  
   let candidateCorpus = `${(candidate.skills || []).join(' ')} `;
   candidateCorpus += `${candidate.experience} years engineering experience. `;
   
@@ -77,7 +77,7 @@ function calculateDeepMLMatchScore(candidate, job) {
     });
   }
 
-  // 2. Build a clear textual definition of the target job
+  
   const jobCorpus = `
     ${(job.requiredSkills || []).join(' ')} 
     ${job.title || ''} 
@@ -94,7 +94,7 @@ function calculateDeepMLMatchScore(candidate, job) {
 
   let finalScore = Math.min(Math.max(rawScore / 4, 0), 1);
 
-  // Exact Penalty for Experience Deficit
+  
   if (candidate.experience < job.experienceRequired) {
     finalScore *= 0.65;
   }
@@ -102,7 +102,6 @@ function calculateDeepMLMatchScore(candidate, job) {
   return finalScore;
 }
 
-// REST Endpoints
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, role, skills, experience, companies, projects } = req.body;
@@ -139,7 +138,7 @@ app.post('/api/auth/update-profile', async (req, res) => {
   try {
     const { userId, skills, experience, companies, projects } = req.body;
     
-    // Explicit Backend Type Guards to ensure Array formats pass correctly into Mongo
+    
     const skillArray = Array.isArray(skills) ? skills : (skills ? skills.split(',').map(s => s.trim()) : []);
     
     const updatedUser = await User.findByIdAndUpdate(
@@ -151,7 +150,6 @@ app.post('/api/auth/update-profile', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Two-Factor Setup & Verification Handlers
 app.post('/api/auth/2fa/setup', async (req, res) => {
   try {
     const { userId } = req.body;
