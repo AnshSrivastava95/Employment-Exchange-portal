@@ -202,7 +202,7 @@ app.post('/api/jobs/fetch-external', async (req, res) => {
     await Job.deleteMany({ sourceWebsite: { $in: ["LinkedIn", "Indeed", "ZipRecruiter"] }, requiredSkills: searchKeyword });
     const savedJobs = await Job.insertMany(mappedJobs);
 
-    res.json({ success: true, message: `🎉 ML Sync complete! Ingested ${savedJobs.length} live entries from ${targetPlatform}.` });
+    res.json({ success: true, message: ` ML Sync complete! Ingested ${savedJobs.length} live entries from ${targetPlatform}.` });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
