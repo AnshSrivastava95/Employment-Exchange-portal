@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const { spawn } = require('child_process');
+const axios = require('axios');
 
 const app = express();
 
@@ -89,20 +90,32 @@ function runPythonMatchScore(candidate, job) {
   });
 }
 
+// --- NEW: External Job Aggregator Route ---
+app.get('/api/jobs/external-search', async (req, res) => {
+  try {
+    const { query } = req.query;
+    const response = await axios.get('https://jsearch.p.rapidapi.com/search', {
+      params: { query: query || 'Software Engineer', num_pages: '1' },
+      headers: {
+        'x-rapidapi-key': 'aa6f6b615dmshec5797e16bac9bap17c7f5jsn4ee5d9e71c91',
+        'x-rapidapi-host': 'jsearch.p.rapidapi.com'
+      }
+    });
+    res.json(response.data.data);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch external jobs: " + err.message });
+  }
+});
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, role, skills, experience, companies, projects } = req.body;
-    
-    if (!name || !email) {
-      return res.status(400).json({ message: "Name and email are required fields." });
-    }
+    if (!name || !email) return res.status(400).json({ message: "Name and email are required." });
 
     let finalRole = 'candidate';
     if (role && typeof role === 'string') {
       const normalizedRole = role.toLowerCase().replace(/[^a-z]/g, '');
-      if (normalizedRole.includes('poster') || normalizedRole.includes('employer') || normalizedRole.includes('recruiter')) {
-        finalRole = 'poster';
-      }
+      if (normalizedRole.includes('poster') || normalizedRole.includes('employer')) finalRole = 'poster';
     }
 
     const existingUser = await User.findOne({ email });
@@ -110,32 +123,18 @@ app.post('/api/auth/register', async (req, res) => {
     
     const skillArray = Array.isArray(skills) ? skills : (typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : []);
 
-    const newUser = new User({ 
-      name, 
-      email, 
-      role: finalRole, 
-      skills: skillArray, 
-      experience: Number(experience) || 0,
-      companies: Array.isArray(companies) ? companies : [],
-      projects: Array.isArray(projects) ? projects : []
-    });
-    
+    const newUser = new User({ name, email, role: finalRole, skills: skillArray, experience: Number(experience) || 0, companies: companies || [], projects: projects || [] });
     await newUser.save();
     res.status(201).json({ success: true, user: newUser });
-  } catch (err) { 
-    res.status(500).json({ error: err.message }); 
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "User profile context not found." });
-    
-    if (user.isTwoFactorEnabled) {
-      return res.json({ requires2FA: true, userId: user._id, role: user.role });
-    }
+    if (!user) return res.status(400).json({ message: "User not found." });
+    if (user.isTwoFactorEnabled) return res.json({ requires2FA: true, userId: user._id, role: user.role });
     res.json({ requires2FA: false, user });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -143,18 +142,11 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/update-profile', async (req, res) => {
   try {
     const { userId, skills, experience, companies, projects } = req.body;
-    const skillArray = Array.isArray(skills) ? skills : (typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : []);
-    
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { 
-        skills: skillArray, 
-        experience: Number(experience) || 0, 
-        companies: Array.isArray(companies) ? companies : [], 
-        projects: Array.isArray(projects) ? projects : [] 
-      },
-      { returnDocument: 'after' }
-    );
+    const updatedUser = await User.findByIdAndUpdate(userId, { 
+      skills: Array.isArray(skills) ? skills : [], 
+      experience: Number(experience) || 0, 
+      companies, projects 
+    }, { returnDocument: 'after' });
     res.json({ success: true, user: updatedUser });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -163,14 +155,10 @@ app.post('/api/auth/2fa/setup', async (req, res) => {
   try {
     const { userId } = req.body;
     const user = await User.findById(userId);
-    const secret = speakeasy.generateSecret({ name: `SmartMatch Pro (${user.email})` });
+    const secret = speakeasy.generateSecret({ name: `SmartMatch (${user.email})` });
     user.twoFactorSecret = secret.base32;
     await user.save();
-    
-    qrcode.toDataURL(secret.otpauth_url, (err, dataUrl) => {
-      if (err) return res.status(500).json({ error: "QR Token Generation Failure" });
-      res.json({ qrCodeUrl: dataUrl });
-    });
+    qrcode.toDataURL(secret.otpauth_url, (err, dataUrl) => res.json({ qrCodeUrl: dataUrl }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -183,7 +171,7 @@ app.post('/api/auth/2fa/verify', async (req, res) => {
       user.isTwoFactorEnabled = true;
       await user.save();
       res.json({ success: true, user });
-    } else { res.status(400).json({ success: false, message: "Invalid 2FA verification token." }); }
+    } else { res.status(400).json({ success: false, message: "Invalid token." }); }
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -191,14 +179,11 @@ app.get('/api/recommendations/candidate/:userId', async (req, res) => {
   try {
     const candidate = await User.findById(req.params.userId);
     const allJobs = await Job.find();
-    
     const matchedJobs = await Promise.all(allJobs.map(async (job) => {
       const matchScore = await runPythonMatchScore(candidate, job);
       return { ...job.toObject(), match_score: Math.round(matchScore * 100) };
     }));
-
-    matchedJobs.sort((a, b) => b.match_score - a.match_score);
-    res.json(matchedJobs);
+    res.json(matchedJobs.sort((a, b) => b.match_score - a.match_score));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -206,26 +191,17 @@ app.get('/api/recommendations/job/:jobId/candidates', async (req, res) => {
   try {
     const job = await Job.findById(req.params.jobId);
     const allCandidates = await User.find({ role: 'candidate' });
-
     const matchedCandidates = await Promise.all(allCandidates.map(async (candidate) => {
       const matchScore = await runPythonMatchScore(candidate, job);
       return { ...candidate.toObject(), match_score: Math.round(matchScore * 100) };
     }));
-
-    matchedCandidates.sort((a, b) => b.match_score - a.match_score);
-    res.json(matchedCandidates);
+    res.json(matchedCandidates.sort((a, b) => b.match_score - a.match_score));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/jobs', async (req, res) => {
   try {
-    const { title, company, description, requiredSkills, experienceRequired, location, postedBy } = req.body;
-    const skillArray = Array.isArray(requiredSkills) ? requiredSkills : (typeof requiredSkills === 'string' ? requiredSkills.split(',').map(s => s.trim()) : []);
-    
-    const newJob = new Job({ 
-      title, company, description, requiredSkills: skillArray, experienceRequired, location, postedBy,
-      applyUrl: "https://employment-exchange-portal.vercel.app/apply/internal" 
-    });
+    const newJob = new Job({ ...req.body, applyUrl: "https://employment-exchange-portal.vercel.app/apply/internal" });
     await newJob.save();
     res.status(201).json(newJob);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -239,7 +215,6 @@ app.get('/api/jobs/posted/:posterId', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000; 
-
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Live Deep-Matching AI Pipeline listening on Port ${PORT}`);
+  console.log(`Live Deep-Matching AI Pipeline listening on Port ${PORT}`);
 });
