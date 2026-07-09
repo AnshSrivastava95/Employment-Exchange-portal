@@ -28,6 +28,9 @@ export default function App() {
 
   const [jobForm, setJobForm] = useState({ title: '', company: '', description: '', requiredSkills: '', experienceRequired: 0, location: 'Remote' });
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [externalJobs, setExternalJobs] = useState([]);
+
   const addCompanyRow = (isEdit = false) => {
     const newCompany = { companyName: '', roleTitle: '', duration: '', description: '' };
     isEdit ? setEditCompanies([...editCompanies, newCompany]) : setRegCompanies([...regCompanies, newCompany]);
@@ -144,6 +147,13 @@ export default function App() {
   const setup2FA = async () => {
     const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/2fa/setup', { userId: currentUser._id });
     setQrCodeUrl(res.data.qrCodeUrl);
+  };
+
+  const handleExternalSearch = async () => {
+    try {
+      const res = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/jobs/external-search?query=${searchQuery}`);
+      setExternalJobs(res.data);
+    } catch (err) { alert("Search failed."); }
   };
 
   const loadCandidateData = async () => {
@@ -390,7 +400,24 @@ export default function App() {
               </div>
             </div>
 
-            <div className="lg:col-span-8 space-y-4">
+            <div className="lg:col-span-8 space-y-6">
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                <h3 className="font-bold flex items-center gap-2 text-cyan-400"><Globe /> External Role Search</h3>
+                <div className="flex gap-2">
+                  <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search for jobs..." className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm" />
+                  <button onClick={handleExternalSearch} className="bg-cyan-600 px-6 rounded-lg font-bold">Search</button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {externalJobs.map((j, i) => (
+                    <div key={i} className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                      <h4 className="font-bold text-sm">{j.job_title}</h4>
+                      <p className="text-xs text-slate-400">{j.employer_name}</p>
+                      <a href={j.job_apply_link} target="_blank" rel="noreferrer" className="text-emerald-400 text-xs underline mt-2 block">Apply</a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <h2 className="text-xl font-black text-emerald-400 flex items-center gap-2"><Briefcase /> Vector Matching Pipeline Score Metrics</h2>
               {recommendations.map((job) => (
                 <div key={job._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 transition hover:border-slate-700/50">
@@ -453,11 +480,8 @@ export default function App() {
                       <h4 className="text-lg font-black text-slate-200">{job.title}</h4>
                       <p className="text-xs text-slate-400">{job.company} — {job.location}</p>
                     </div>
-                    <button onClick={() => inspectTopCandidates(job._id)} className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-bold px-3 py-1.5 rounded-xl transition">
-                      Inspect Match Telemetry
-                    </button>
+                    <button onClick={() => inspectTopCandidates(job._id)} className="bg-slate-800 text-xs font-bold px-4 py-2 rounded-lg hover:bg-slate-700 transition">Inspect Pipeline</button>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{job.description}</p>
                 </div>
               ))}
             </div>
