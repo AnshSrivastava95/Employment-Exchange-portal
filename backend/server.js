@@ -3,10 +3,9 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
-const natural = require('natural');
+const { spawn } = require('child_process');
 
 const app = express();
-
 
 app.use(cors({
   origin: 'http://localhost:5173',
@@ -19,7 +18,6 @@ const MONGO_URI = 'mongodb://127.0.0.1:27017/smartmatch_ai';
 mongoose.connect(MONGO_URI)
   .then(() => console.log("Advanced ML Engine & DB Connected Successfully!"))
   .catch(err => console.error("MongoDB connection error:", err));
-
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -57,49 +55,31 @@ const JobSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 const Job = mongoose.model('Job', JobSchema);
 
+function runPythonMatchScore(candidate, job) {
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn('python', ['./ml_engine/logic.py']);
+    let outputData = '';
 
-function calculateDeepMLMatchScore(candidate, job) {
-  if (!job.requiredSkills || !job.requiredSkills.length) return 1.0;
-  
-  
-  let candidateCorpus = `${(candidate.skills || []).join(' ')} `;
-  candidateCorpus += `${candidate.experience} years engineering experience. `;
-  
-  if (candidate.companies && candidate.companies.length) {
-    candidate.companies.forEach(c => {
-      candidateCorpus += `${c.companyName} ${c.roleTitle} ${c.description} `;
+    pythonProcess.stdin.write(JSON.stringify({ candidate, job }));
+    pythonProcess.stdin.end();
+
+    pythonProcess.stdout.on('data', (data) => {
+      outputData += data.toString();
     });
-  }
-  
-  if (candidate.projects && candidate.projects.length) {
-    candidate.projects.forEach(p => {
-      candidateCorpus += `${p.title} ${(p.techStack || []).join(' ')} ${p.description} `;
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`Python process exited with error code ${code}`));
+      }
+      try {
+        const parsed = JSON.parse(outputData);
+        if (parsed.error) return reject(new Error(parsed.error));
+        resolve(parsed.matchScore);
+      } catch (e) {
+        reject(e);
+      }
     });
-  }
-
-  
-  const jobCorpus = `
-    ${(job.requiredSkills || []).join(' ')} 
-    ${job.title || ''} 
-    ${job.description || ''}
-  `.toLowerCase();
-
-  const tfidf = new natural.TfIdf();
-  tfidf.addDocument(jobCorpus);
-
-  let rawScore = 0;
-  tfidf.tfidfs(candidateCorpus.toLowerCase(), function(i, measure) {
-    rawScore += measure;
   });
-
-  let finalScore = Math.min(Math.max(rawScore / 4, 0), 1);
-
-  
-  if (candidate.experience < job.experienceRequired) {
-    finalScore *= 0.65;
-  }
-
-  return finalScore;
 }
 
 app.post('/api/auth/register', async (req, res) => {
@@ -137,8 +117,6 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/update-profile', async (req, res) => {
   try {
     const { userId, skills, experience, companies, projects } = req.body;
-    
-    
     const skillArray = Array.isArray(skills) ? skills : (skills ? skills.split(',').map(s => s.trim()) : []);
     
     const updatedUser = await User.findByIdAndUpdate(
@@ -183,10 +161,10 @@ app.get('/api/recommendations/candidate/:userId', async (req, res) => {
     const candidate = await User.findById(req.params.userId);
     const allJobs = await Job.find();
     
-    const matchedJobs = allJobs.map(job => {
-      const matchScore = calculateDeepMLMatchScore(candidate, job);
+    const matchedJobs = await Promise.all(allJobs.map(async (job) => {
+      const matchScore = await runPythonMatchScore(candidate, job);
       return { ...job.toObject(), match_score: Math.round(matchScore * 100) };
-    });
+    }));
 
     matchedJobs.sort((a, b) => b.match_score - a.match_score);
     res.json(matchedJobs);
@@ -198,10 +176,10 @@ app.get('/api/recommendations/job/:jobId/candidates', async (req, res) => {
     const job = await Job.findById(req.params.jobId);
     const allCandidates = await User.find({ role: 'candidate' });
 
-    const matchedCandidates = allCandidates.map(candidate => {
-      const matchScore = calculateDeepMLMatchScore(candidate, job);
+    const matchedCandidates = await Promise.all(allCandidates.map(async (candidate) => {
+      const matchScore = await runPythonMatchScore(candidate, job);
       return { ...candidate.toObject(), match_score: Math.round(matchScore * 100) };
-    });
+    }));
 
     matchedCandidates.sort((a, b) => b.match_score - a.match_score);
     res.json(matchedCandidates);
@@ -229,4 +207,8 @@ app.get('/api/jobs/posted/:posterId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.listen(5000, () => console.log("Live Deep-Matching AI Pipeline listening on Port 5000"));
+const PORT = process.env.PORT || 5000; 
+
+app.listen(PORT, () => {
+    console.log(`Live Deep-Matching AI Pipeline listening on Port ${PORT}`);
+});
