@@ -17,9 +17,11 @@ export default function App() {
   const [activeJobCandidates, setActiveJobCandidates] = useState([]);
   const [inspectingJobId, setInspectingJobId] = useState(null);
 
+
   const [regForm, setRegForm] = useState({ name: '', email: '', role: 'candidate', skills: '', experience: 0 });
   const [regCompanies, setRegCompanies] = useState([]);
   const [regProjects, setRegProjects] = useState([]);
+
 
   const [editSkills, setEditSkills] = useState('');
   const [editExperience, setEditExperience] = useState(0);
@@ -28,8 +30,6 @@ export default function App() {
 
   const [jobForm, setJobForm] = useState({ title: '', company: '', description: '', requiredSkills: '', experienceRequired: 0, location: 'Remote' });
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [externalJobs, setExternalJobs] = useState([]);
 
   const addCompanyRow = (isEdit = false) => {
     const newCompany = { companyName: '', roleTitle: '', duration: '', description: '' };
@@ -52,7 +52,7 @@ export default function App() {
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/login', { email: authEmail });
+      const res = await axios.post('http://localhost:5000/api/auth/login', { email: authEmail });
       if (res.data.requires2FA) {
         setPendingUserId(res.data.userId);
         setPending2FA(true);
@@ -67,14 +67,13 @@ export default function App() {
     try {
       const compiledPayload = {
         ...regForm,
-        skills: regForm.skills.split(',').map(s => s.trim()).filter(Boolean),
         companies: regCompanies,
         projects: regProjects.map(p => ({ 
           ...p, 
           techStack: typeof p.techStack === 'string' ? p.techStack.split(',').map(s => s.trim()).filter(Boolean) : p.techStack 
         }))
       };
-      const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/register', compiledPayload);
+      const res = await axios.post('http://localhost:5000/api/auth/register', compiledPayload);
       if (res.data.success) {
         alert("Account completely structured. Please login.");
         setCurrentView('login');
@@ -84,6 +83,7 @@ export default function App() {
 
   const handleUpdateProfile = async () => {
     try {
+
       const formattedProjects = editProjects.map(p => {
         let stackArray = [];
         if (Array.isArray(p.techStack)) {
@@ -94,7 +94,7 @@ export default function App() {
         return { ...p, techStack: stackArray };
       });
 
-      const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/update-profile', {
+      const res = await axios.post('http://localhost:5000/api/auth/update-profile', {
         userId: currentUser._id,
         skills: typeof editSkills === 'string' ? editSkills.split(',').map(s => s.trim()).filter(Boolean) : editSkills,
         experience: Number(editExperience),
@@ -105,12 +105,14 @@ export default function App() {
       if (res.data.success) {
         alert("Profile re-vectored & vector tracking refreshed!");
         setCurrentUser(res.data.user);
+        
+
         setEditSkills(res.data.user.skills?.join(', ') || '');
         setEditExperience(res.data.user.experience || 0);
         setEditCompanies(res.data.user.companies || []);
         setEditProjects(res.data.user.projects || []);
         
-        const rRes = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/recommendations/candidate/${res.data.user._id}`);
+        const rRes = await axios.get(`http://localhost:5000/api/recommendations/candidate/${res.data.user._id}`);
         setRecommendations(rRes.data);
       }
     } catch (err) { 
@@ -130,7 +132,7 @@ export default function App() {
 
   const verify2FAToken = async () => {
     try {
-      const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/2fa/verify', { userId: pendingUserId || currentUser._id, token: totpToken });
+      const res = await axios.post('http://localhost:5000/api/auth/2fa/verify', { userId: pendingUserId || currentUser._id, token: totpToken });
       if (res.data.success) {
         alert("Token match verified successfully!"); 
         if (pending2FA) {
@@ -145,36 +147,29 @@ export default function App() {
   };
 
   const setup2FA = async () => {
-    const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/2fa/setup', { userId: currentUser._id });
+    const res = await axios.post('http://localhost:5000/api/auth/2fa/setup', { userId: currentUser._id });
     setQrCodeUrl(res.data.qrCodeUrl);
   };
 
-  const handleExternalSearch = async () => {
-    try {
-      const res = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/jobs/external-search?query=${searchQuery}`);
-      setExternalJobs(res.data);
-    } catch (err) { alert("Search failed."); }
-  };
-
   const loadCandidateData = async () => {
-    const res = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/recommendations/candidate/${currentUser._id}`);
+    const res = await axios.get(`http://localhost:5000/api/recommendations/candidate/${currentUser._id}`);
     setRecommendations(res.data);
   };
 
   const loadPosterData = async () => {
-    const res = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/jobs/posted/${currentUser._id}`);
+    const res = await axios.get(`http://localhost:5000/api/jobs/posted/${currentUser._id}`);
     setMyPostedJobs(res.data);
   };
 
   const inspectTopCandidates = async (jobId) => {
     setInspectingJobId(jobId);
-    const res = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/recommendations/job/${jobId}/candidates`);
+    const res = await axios.get(`http://localhost:5000/api/recommendations/job/${jobId}/candidates`);
     setActiveJobCandidates(res.data);
   };
 
   const handleCreateJob = async (e) => {
     e.preventDefault();
-    await axios.post('https://smartmatch-ai-52mm.onrender.com/api/jobs', { ...jobForm, postedBy: currentUser._id });
+    await axios.post('http://localhost:5000/api/jobs', { ...jobForm, postedBy: currentUser._id });
     alert("Role published to active queues.");
     setJobForm({ title: '', company: '', description: '', requiredSkills: '', experienceRequired: 0, location: 'Remote' });
     loadPosterData();
@@ -202,6 +197,8 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto">
+        
+        
         {currentView === 'login' && (
           <div className="space-y-16">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center pt-4">
@@ -219,7 +216,7 @@ export default function App() {
                 <div className="grid grid-cols-3 gap-4 max-w-lg pt-4">
                   <div className="bg-slate-900/50 border border-slate-900 p-4 rounded-xl text-center">
                     <p className="text-2xl font-black text-cyan-400">98.4%</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Precision Match</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Precision Match Match</p>
                   </div>
                   <div className="bg-slate-900/50 border border-slate-900 p-4 rounded-xl text-center">
                     <p className="text-2xl font-black text-emerald-400">&lt; 2s</p>
@@ -254,9 +251,11 @@ export default function App() {
           </div>
         )}
 
+        
         {currentView === 'register' && (
           <div className="max-w-3xl mx-auto bg-slate-900 border border-slate-800 p-8 rounded-3xl space-y-6">
             <h2 className="text-2xl font-black text-center flex items-center justify-center gap-2 text-violet-400"><UserPlus /> Build Structural Profile Matrix</h2>
+            
             <form onSubmit={handleRegisterSubmit} className="space-y-6 text-sm">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <select value={regForm.role} onChange={e => setRegForm({...regForm, role: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-300">
@@ -278,6 +277,7 @@ export default function App() {
                     </div>
                   </div>
 
+                  
                   {regForm.experience > 0 && (
                     <div className="space-y-4 bg-slate-950/60 p-5 rounded-2xl border border-slate-800">
                       <div className="flex justify-between items-center">
@@ -286,15 +286,24 @@ export default function App() {
                       </div>
                       {regCompanies.map((comp, idx) => (
                         <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800/80">
-                          <input type="text" placeholder="Company Name" required value={comp.companyName} onChange={e => { const updated = [...regCompanies]; updated[idx].companyName = e.target.value; setRegCompanies(updated); }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
-                          <input type="text" placeholder="Role Title" required value={comp.roleTitle} onChange={e => { const updated = [...regCompanies]; updated[idx].roleTitle = e.target.value; setRegCompanies(updated); }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
-                          <input type="text" placeholder="Duration" required value={comp.duration} onChange={e => { const updated = [...regCompanies]; updated[idx].duration = e.target.value; setRegCompanies(updated); }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
-                          <input type="text" placeholder="Summary" required value={comp.description} onChange={e => { const updated = [...regCompanies]; updated[idx].description = e.target.value; setRegCompanies(updated); }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
+                          <input type="text" placeholder="Company Name" required value={comp.companyName} onChange={e => {
+                            const updated = [...regCompanies]; updated[idx].companyName = e.target.value; setRegCompanies(updated);
+                          }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
+                          <input type="text" placeholder="Role Title" required value={comp.roleTitle} onChange={e => {
+                            const updated = [...regCompanies]; updated[idx].roleTitle = e.target.value; setRegCompanies(updated);
+                          }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
+                          <input type="text" placeholder="Duration (e.g., 2024 - 2026)" required value={comp.duration} onChange={e => {
+                            const updated = [...regCompanies]; updated[idx].duration = e.target.value; setRegCompanies(updated);
+                          }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
+                          <input type="text" placeholder="Summary of responsibilities and achievements..." required value={comp.description} onChange={e => {
+                            const updated = [...regCompanies]; updated[idx].description = e.target.value; setRegCompanies(updated);
+                          }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
                         </div>
                       ))}
                     </div>
                   )}
 
+                
                   <div className="space-y-4 bg-slate-950/60 p-5 rounded-2xl border border-slate-800">
                     <div className="flex justify-between items-center">
                       <h4 className="font-bold text-cyan-400 text-xs flex items-center gap-1.5"><FolderGit size={14}/> Engineering Projects Vector Pool</h4>
@@ -302,23 +311,33 @@ export default function App() {
                     </div>
                     {regProjects.map((proj, idx) => (
                       <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800/80">
-                        <input type="text" placeholder="Project Title" required value={proj.title} onChange={e => { const updated = [...regProjects]; updated[idx].title = e.target.value; setRegProjects(updated); }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
-                        <input type="text" placeholder="Tech Stack" required value={proj.techStack} onChange={e => { const updated = [...regProjects]; updated[idx].techStack = e.target.value; setRegProjects(updated); }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs md:col-span-2" />
-                        <input type="text" placeholder="Architecture Details..." required value={proj.description} onChange={e => { const updated = [...regProjects]; updated[idx].description = e.target.value; setRegProjects(updated); }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs md:col-span-3" />
+                        <input type="text" placeholder="Project Title" required value={proj.title} onChange={e => {
+                          const updated = [...regProjects]; updated[idx].title = e.target.value; setRegProjects(updated);
+                        }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs" />
+                        <input type="text" placeholder="Tech Stack (Comma-separated)" required value={proj.techStack} onChange={e => {
+                          const updated = [...regProjects]; updated[idx].techStack = e.target.value; setRegProjects(updated);
+                        }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs md:col-span-2" />
+                        <input type="text" placeholder="Execution metrics and architecture details..." required value={proj.description} onChange={e => {
+                          const updated = [...regProjects]; updated[idx].description = e.target.value; setRegProjects(updated);
+                        }} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs md:col-span-3" />
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
               <button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 font-black py-3 rounded-xl transition">Submit Profile Structural Deployment</button>
             </form>
             <p className="text-xs text-center text-slate-500">Existing context metadata? <span onClick={() => setCurrentView('login')} className="text-cyan-400 underline cursor-pointer">Login</span></p>
           </div>
         )}
-
+        
         {currentView === 'candidate' && currentUser && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* PROFILE MANAGEMENT & CORE PARAMETERS */}
             <div className="lg:col-span-4 space-y-6">
+              
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
                 <h3 className="font-bold border-b border-slate-800 pb-3 flex items-center gap-2 text-emerald-400"><LayoutDashboard size={16}/> Identity Matrix Registry</h3>
                 <div className="space-y-2 text-sm text-slate-300">
@@ -330,6 +349,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* LIVE RE-VECTOR MATRIX MODULE (EDIT PROFILE SIDEBAR) */}
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
                 <h3 className="font-bold border-b border-slate-800 pb-3 flex items-center gap-2 text-amber-400"><Settings size={16}/> Telemetry Target Workspace</h3>
                 <div className="space-y-3 text-xs">
@@ -342,6 +362,7 @@ export default function App() {
                     <input type="number" value={editExperience} onChange={e => setEditExperience(parseInt(e.target.value) || 0)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none" />
                   </div>
 
+                  {/* Inline Workspace History Modification Array Fields */}
                   {editExperience > 0 && (
                     <div className="space-y-3 pt-2">
                       <div className="flex justify-between items-center">
@@ -358,6 +379,7 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* Inline Workspace Project Modification Array Fields */}
                   <div className="space-y-3 pt-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400 block">Engineering Projects Rows</span>
@@ -371,73 +393,60 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-                  <button onClick={handleUpdateProfile} className="w-full bg-amber-500 font-bold text-slate-950 py-2 rounded-lg transition mt-4 hover:bg-amber-400">Re-vector Profile</button>
+
+                  <button onClick={handleUpdateProfile} className="w-full bg-amber-500 font-bold text-slate-950 py-2 rounded-lg transition mt-4 hover:bg-amber-400">Re-vector Ecosystem Profile</button>
                 </div>
               </div>
 
+              {/* ECOSYSTEM GUARD INTEGRATION PANEL (2FA) */}
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
                 <h3 className="font-bold flex items-center gap-2 text-violet-400 border-b border-slate-800 pb-3"><ShieldCheck size={18}/> Ecosystem Guard (2FA)</h3>
                 {!currentUser.isTwoFactorEnabled ? (
                   <div className="space-y-3 text-xs text-center">
-                    <p className="text-slate-400 text-left">Boost security. Activate TOTP verification loops across your profile gateway.</p>
+                    <p className="text-slate-400 text-left leading-relaxed">Boost your security metrics. Activate TOTP verification across your profile gateway.</p>
                     {!qrCodeUrl ? (
-                      <button onClick={setup2FA} className="w-full bg-violet-600 font-bold py-2 rounded-lg text-white transition hover:bg-violet-500">Initiate Handshake</button>
+                      <button onClick={setup2FA} className="w-full bg-violet-600 font-bold py-2 rounded-lg text-white transition hover:bg-violet-500">Initiate Security Handshake</button>
                     ) : (
                       <div className="space-y-3 text-center flex flex-col items-center">
-                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl text-center text-[10px] text-slate-400 font-mono w-full break-all selection:bg-cyan-500/30">
-                          {qrCodeUrl}
-                        </div>
+                        <img src={qrCodeUrl} alt="Authenticator Token Setup QR" className="border-4 border-white p-1 rounded-lg w-36 h-36" />
                         <input type="text" maxLength="6" placeholder="000000" value={totpToken} onChange={e => setTotpToken(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-center tracking-widest font-mono text-slate-200" />
-                        <button onClick={verify2FAToken} className="w-full bg-emerald-500 font-bold py-2 text-slate-950 rounded-lg transition hover:bg-emerald-400">Lock Pairing</button>
+                        <button onClick={verify2FAToken} className="w-full bg-emerald-500 font-bold py-2 text-slate-950 rounded-lg transition hover:bg-emerald-400">Lock Cryptographic Pairing</button>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="text-center p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold shadow">
-                     Multi-Factor Vault Shield Operational
+                  <div className="text-center p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
+                    🔒 Multi-Factor Vault Routing Shield Fully Operational
                   </div>
                 )}
               </div>
+
             </div>
 
-            <div className="lg:col-span-8 space-y-6">
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-                <h3 className="font-bold flex items-center gap-2 text-cyan-400"><Globe /> External Role Search</h3>
-                <div className="flex gap-2">
-                  <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search for jobs..." className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm" />
-                  <button onClick={handleExternalSearch} className="bg-cyan-600 px-6 rounded-lg font-bold">Search</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {externalJobs.map((j, i) => (
-                    <div key={i} className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                      <h4 className="font-bold text-sm">{j.job_title}</h4>
-                      <p className="text-xs text-slate-400">{j.employer_name}</p>
-                      <a href={j.job_apply_link} target="_blank" rel="noreferrer" className="text-emerald-400 text-xs underline mt-2 block">Apply</a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+            {/* REAL-TIME MATCHING AI RESULTS FEED */}
+            <div className="lg:col-span-8 space-y-4">
               <h2 className="text-xl font-black text-emerald-400 flex items-center gap-2"><Briefcase /> Vector Matching Pipeline Score Metrics</h2>
               {recommendations.map((job) => (
-                <div key={job._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 transition hover:border-slate-700/50">
+                <div key={job._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative transition hover:border-slate-700/50">
                   <div className="flex justify-between items-start gap-4">
                     <div>
                       <span className="text-[10px] font-black px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-cyan-400 tracking-wide uppercase">Source Network: {job.sourceWebsite}</span>
                       <h4 className="text-xl font-black mt-3 text-slate-100">{job.title}</h4>
                       <p className="text-xs text-slate-400 font-bold mt-0.5">{job.company} — {job.location} (Engine Threshold: {job.experienceRequired} Years)</p>
                     </div>
-                    <span className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 px-4 py-2 text-sm text-emerald-400 font-black rounded-xl">
+                    <span className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 px-4 py-2 text-sm text-emerald-400 font-black rounded-xl shadow-lg">
                       {job.match_score}% Deep Match
                     </span>
                   </div>
-                  <p className="text-sm text-slate-300 mt-4 leading-relaxed">{job.description}</p>
+                  <p className="text-sm text-slate-300 mt-4 leading-relaxed font-normal">{job.description}</p>
                 </div>
               ))}
             </div>
+
           </div>
         )}
 
+        {/* POSTER VIEW POSITION CONTROLS */}
         {currentView === 'poster' && currentUser && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="space-y-6">
@@ -472,21 +481,23 @@ export default function App() {
             </div>
 
             <div className="lg:col-span-2 space-y-4">
-              <h2 className="text-xl font-black text-cyan-400 flex items-center gap-2"><Briefcase /> Your Posted Positions</h2>
+              <h2 className="text-xl font-black text-cyan-400">Active Board Postings</h2>
               {myPostedJobs.map((job) => (
-                <div key={job._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h4 className="text-lg font-black text-slate-200">{job.title}</h4>
-                      <p className="text-xs text-slate-400">{job.company} — {job.location}</p>
-                    </div>
-                    <button onClick={() => inspectTopCandidates(job._id)} className="bg-slate-800 text-xs font-bold px-4 py-2 rounded-lg hover:bg-slate-700 transition">Inspect Pipeline</button>
+                <div key={job._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+                  <div>
+                    <h4 className="text-lg font-bold">{job.title}</h4>
+                    <p className="text-xs text-cyan-400 font-semibold mb-2">{job.company} — {job.location}</p>
+                    <p className="text-sm text-slate-400 line-clamp-3">{job.description}</p>
                   </div>
+                  <button onClick={() => inspectTopCandidates(job._id)} className="mt-4 flex items-center justify-center gap-1.5 w-full bg-slate-950 border border-slate-800 text-slate-200 hover:bg-slate-900 font-bold py-2 rounded-xl text-xs transition">
+                    Scan Database for Best Candidates <Users size={14}/>
+                  </button>
                 </div>
               ))}
             </div>
           </div>
         )}
+
       </main>
     </div>
   );
