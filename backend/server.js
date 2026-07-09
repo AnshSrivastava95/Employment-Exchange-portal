@@ -14,10 +14,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
-const MONGO_URI = 'mongodb://127.0.0.1:27017/smartmatch_ai'; 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log("Advanced ML Engine & DB Connected Successfully!"))
-  .catch(err => console.error("MongoDB connection error:", err));
+const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/employment_exchange";
+
+mongoose.connect(mongoURI)
+  .then(() => console.log("Database connected successfully!"))
+  .catch(err => console.error("Database connection failed:", err));
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
