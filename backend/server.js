@@ -58,8 +58,10 @@ const Job = mongoose.model('Job', JobSchema);
 
 function runPythonMatchScore(candidate, job) {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python', ['./ml_engine/logic.py']);
+    const pythonCmd = process.platform === "win32" ? "python" : "python3";
+    const pythonProcess = spawn(pythonCmd, ['./ml_engine/logic.py']);
     let outputData = '';
+    let errorData = '';
 
     pythonProcess.stdin.write(JSON.stringify({ candidate, job }));
     pythonProcess.stdin.end();
@@ -68,9 +70,13 @@ function runPythonMatchScore(candidate, job) {
       outputData += data.toString();
     });
 
+    pythonProcess.stderr.on('data', (data) => {
+      errorData += data.toString();
+    });
+
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
-        return reject(new Error(`Python process exited with error code ${code}`));
+        return reject(new Error(`Python process exited with code ${code}. Error: ${errorData}`));
       }
       try {
         const parsed = JSON.parse(outputData);
@@ -87,22 +93,31 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, role, skills, experience, companies, projects } = req.body;
     
-    const normalizedRole = role ? role.toLowerCase().replace(/[^a-z]/g, '') : '';
-    const finalRole = normalizedRole.includes('candidate') || normalizedRole.includes('seeker') ? 'candidate' : 'poster';
+    if (!name || !email) {
+      return res.status(400).json({ message: "Name and email are required fields." });
+    }
+
+    let finalRole = 'candidate';
+    if (role && typeof role === 'string') {
+      const normalizedRole = role.toLowerCase().replace(/[^a-z]/g, '');
+      if (normalizedRole.includes('poster') || normalizedRole.includes('employer') || normalizedRole.includes('recruiter')) {
+        finalRole = 'poster';
+      }
+    }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "Email already registered." });
     
-    const skillArray = Array.isArray(skills) ? skills : (skills ? skills.split(',').map(s => s.trim()) : []);
+    const skillArray = Array.isArray(skills) ? skills : (typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : []);
 
     const newUser = new User({ 
       name, 
       email, 
       role: finalRole, 
       skills: skillArray, 
-      experience: experience || 0,
-      companies: companies || [],
-      projects: projects || []
+      experience: Number(experience) || 0,
+      companies: Array.isArray(companies) ? companies : [],
+      projects: Array.isArray(projects) ? projects : []
     });
     
     await newUser.save();
@@ -128,11 +143,16 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/update-profile', async (req, res) => {
   try {
     const { userId, skills, experience, companies, projects } = req.body;
-    const skillArray = Array.isArray(skills) ? skills : (skills ? skills.split(',').map(s => s.trim()) : []);
+    const skillArray = Array.isArray(skills) ? skills : (typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : []);
     
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { skills: skillArray, experience, companies, projects },
+      { 
+        skills: skillArray, 
+        experience: Number(experience) || 0, 
+        companies: Array.isArray(companies) ? companies : [], 
+        projects: Array.isArray(projects) ? projects : [] 
+      },
       { new: true }
     );
     res.json({ success: true, user: updatedUser });
@@ -200,7 +220,7 @@ app.get('/api/recommendations/job/:jobId/candidates', async (req, res) => {
 app.post('/api/jobs', async (req, res) => {
   try {
     const { title, company, description, requiredSkills, experienceRequired, location, postedBy } = req.body;
-    const skillArray = Array.isArray(requiredSkills) ? requiredSkills : requiredSkills.split(',').map(s => s.trim());
+    const skillArray = Array.isArray(requiredSkills) ? requiredSkills : (typeof requiredSkills === 'string' ? requiredSkills.split(',').map(s => s.trim()) : []);
     
     const newJob = new Job({ 
       title, company, description, requiredSkills: skillArray, experienceRequired, location, postedBy,
