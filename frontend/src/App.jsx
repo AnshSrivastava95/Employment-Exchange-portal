@@ -52,7 +52,7 @@ export default function App() {
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', { email: authEmail });
+      const res = await axios.post('https://smartmatch-ai-52mm.onrender.com', { email: authEmail });
       if (res.data.requires2FA) {
         setPendingUserId(res.data.userId);
         setPending2FA(true);
@@ -73,7 +73,7 @@ export default function App() {
           techStack: typeof p.techStack === 'string' ? p.techStack.split(',').map(s => s.trim()).filter(Boolean) : p.techStack 
         }))
       };
-      const res = await axios.post('http://localhost:5000/api/auth/register', compiledPayload);
+      const res = await axios.post('https://smartmatch-ai-52mm.onrender.com', compiledPayload);
       if (res.data.success) {
         alert("Account completely structured. Please login.");
         setCurrentView('login');
@@ -94,7 +94,7 @@ export default function App() {
         return { ...p, techStack: stackArray };
       });
 
-      const res = await axios.post('http://localhost:5000/api/auth/update-profile', {
+      const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/update-profile', {
         userId: currentUser._id,
         skills: typeof editSkills === 'string' ? editSkills.split(',').map(s => s.trim()).filter(Boolean) : editSkills,
         experience: Number(editExperience),
@@ -112,7 +112,7 @@ export default function App() {
         setEditCompanies(res.data.user.companies || []);
         setEditProjects(res.data.user.projects || []);
         
-        const rRes = await axios.get(`http://localhost:5000/api/recommendations/candidate/${res.data.user._id}`);
+        const rRes = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/recommendations/candidate/${res.data.user._id}`);
         setRecommendations(rRes.data);
       }
     } catch (err) { 
@@ -132,7 +132,7 @@ export default function App() {
 
   const verify2FAToken = async () => {
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/2fa/verify', { userId: pendingUserId || currentUser._id, token: totpToken });
+      const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/2fa/verify', { userId: pendingUserId || currentUser._id, token: totpToken });
       if (res.data.success) {
         alert("Token match verified successfully!"); 
         if (pending2FA) {
@@ -147,29 +147,29 @@ export default function App() {
   };
 
   const setup2FA = async () => {
-    const res = await axios.post('http://localhost:5000/api/auth/2fa/setup', { userId: currentUser._id });
+    const res = await axios.post('https://smartmatch-ai-52mm.onrender.com/api/auth/2fa/setup', { userId: currentUser._id });
     setQrCodeUrl(res.data.qrCodeUrl);
   };
 
   const loadCandidateData = async () => {
-    const res = await axios.get(`http://localhost:5000/api/recommendations/candidate/${currentUser._id}`);
+    const res = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/recommendations/candidate/${currentUser._id}`);
     setRecommendations(res.data);
   };
 
   const loadPosterData = async () => {
-    const res = await axios.get(`http://localhost:5000/api/jobs/posted/${currentUser._id}`);
+    const res = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/jobs/posted/${currentUser._id}`);
     setMyPostedJobs(res.data);
   };
 
   const inspectTopCandidates = async (jobId) => {
     setInspectingJobId(jobId);
-    const res = await axios.get(`http://localhost:5000/api/recommendations/job/${jobId}/candidates`);
+    const res = await axios.get(`https://smartmatch-ai-52mm.onrender.com/api/recommendations/job/${jobId}/candidates`);
     setActiveJobCandidates(res.data);
   };
 
   const handleCreateJob = async (e) => {
     e.preventDefault();
-    await axios.post('http://localhost:5000/api/jobs', { ...jobForm, postedBy: currentUser._id });
+    await axios.post('https://smartmatch-ai-52mm.onrender.com/api/jobs', { ...jobForm, postedBy: currentUser._id });
     alert("Role published to active queues.");
     setJobForm({ title: '', company: '', description: '', requiredSkills: '', experienceRequired: 0, location: 'Remote' });
     loadPosterData();
