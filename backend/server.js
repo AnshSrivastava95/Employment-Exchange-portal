@@ -1,4 +1,4 @@
-const express = require('express');
+=const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const speakeasy = require('speakeasy');
@@ -153,7 +153,7 @@ app.post('/api/auth/update-profile', async (req, res) => {
         companies: Array.isArray(companies) ? companies : [], 
         projects: Array.isArray(projects) ? projects : [] 
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
     res.json({ success: true, user: updatedUser });
   } catch (err) { res.status(500).json({ error: err.message }); }
