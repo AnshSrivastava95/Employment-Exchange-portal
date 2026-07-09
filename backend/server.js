@@ -86,20 +86,30 @@ function runPythonMatchScore(candidate, job) {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, role, skills, experience, companies, projects } = req.body;
+    
+    const normalizedRole = role ? role.toLowerCase().replace(/[^a-z]/g, '') : '';
+    const finalRole = normalizedRole.includes('candidate') || normalizedRole.includes('seeker') ? 'candidate' : 'poster';
+
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "Email already registered." });
     
-    const skillArray = skills ? skills.split(',').map(s => s.trim()) : [];
+    const skillArray = Array.isArray(skills) ? skills : (skills ? skills.split(',').map(s => s.trim()) : []);
+
     const newUser = new User({ 
-      name, email, role, 
+      name, 
+      email, 
+      role: finalRole, 
       skills: skillArray, 
       experience: experience || 0,
       companies: companies || [],
       projects: projects || []
     });
+    
     await newUser.save();
     res.status(201).json({ success: true, user: newUser });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -194,7 +204,7 @@ app.post('/api/jobs', async (req, res) => {
     
     const newJob = new Job({ 
       title, company, description, requiredSkills: skillArray, experienceRequired, location, postedBy,
-      applyUrl: "http://localhost:5173/apply/internal" 
+      applyUrl: "https://employment-exchange-portal.vercel.app/apply/internal" 
     });
     await newJob.save();
     res.status(201).json(newJob);
@@ -210,6 +220,6 @@ app.get('/api/jobs/posted/:posterId', async (req, res) => {
 
 const PORT = process.env.PORT || 5000; 
 
-app.listen(PORT,"0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`Live Deep-Matching AI Pipeline listening on Port ${PORT}`);
 });
