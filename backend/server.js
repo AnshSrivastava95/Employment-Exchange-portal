@@ -17,7 +17,7 @@ app.use(express.json());
 
 const MONGO_URI = 'mongodb://127.0.0.1:27017/smartmatch_ai'; 
 mongoose.connect(MONGO_URI)
-  .then(() => console.log("💾 Advanced ML Engine & DB Connected Successfully!"))
+  .then(() => console.log("Advanced ML Engine & DB Connected Successfully!"))
   .catch(err => console.error("MongoDB connection error:", err));
 
 
