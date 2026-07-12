@@ -12,6 +12,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/smartmatch_ai';
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map(o => o.trim());
+console.log('Allowed CORS origins:', JSON.stringify(ALLOWED_ORIGINS));
 
 const JSEARCH_HOST = 'jsearch.p.rapidapi.com';
 const JSEARCH_API_KEY = process.env.RAPIDAPI_KEY;
